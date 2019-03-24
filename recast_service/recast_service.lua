@@ -7,15 +7,17 @@ local data = {
     ma_recasts = {},
 }
 
+local ja_recasts = data.ja_recasts
+local ma_recasts = data.ma_recasts
+
 local current_time = function()
     return os.clock()
 end
 
 packets.incoming[0x028]:register(function(p)
     if p.actor == player.id and p.category == 4 then
-        local t = data.ma_recasts
 
-        t[#t + 1] = {
+        ma_recasts[#ma_recasts + 1] = {
             id = p.param,
             duration = p.recast,
             ts_start = current_time(),
@@ -26,16 +28,14 @@ end)
 
 packets.incoming[0x119]:register(function(p)
     for i = 1, #p.recasts do
-        local t = p.recasts[i]
 
-        if t.duration > 0 and t.recast > 0 then
-            local s = data.ja_recasts
+        if p.recasts[i].duration > 0 and p.recasts[i].recast > 0 then
 
-            s[#s + 1] = {
-                id = t.recast,
-                duration = t.duration,
+            ja_recasts[#ja_recasts + 1] = {
+                id = p.recasts[i].recast,
+                duration = p.recasts[i].duration,
                 ts_start = current_time(),
-                ts_end = current_time() + t.duration,
+                ts_end = current_time() + p.recasts[i].duration,
             }
         end
     end
