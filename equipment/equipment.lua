@@ -14,7 +14,7 @@ local check_equippable = function(slot, item)
         assert(item.id ~= 0, "invalid item")
         assert(resources.bags[item.bag].equippable, "invalid item bad")
         assert(item.status == 0, "invalid item status")
-        assert(bit.band(bit.left_shift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
+        assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
     end
 end
 
