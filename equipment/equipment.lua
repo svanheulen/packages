@@ -9,17 +9,21 @@ ftype.base.fields.item.type.fields.item = {
     end,
 }
 
+local check_equippable = function(slot, item)
+    if item then
+        assert(item.id ~= 0, "invalid item")
+        assert(resources.bags[item.bag].equippable, "invalid item bad")
+        assert(item.status == 0, "invalid item status")
+        assert(bit.band(bit.left_shift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
+    end
+end
+
 ftype.base.fields.equip = {
     data = function(self, item)
         local bag = item and item.bag or 0
         local index = item and item.index or 0
         if self.item.bag ~= bag or self.item.index ~= index then
-            if item then
-                assert(item.id ~= 0, "invalid item")
-                assert(resources.bags[bag].equippable, "invalid item bad")
-                assert(item.status == 0, "invalid item status")
-                assert(bit.band(bit.left_shift(1, self.slot), item.item.slots) ~= 0, "invalid item equipment slot")
-            end
+            check_equippable(self.slot, item)
             packets.outgoing[0x050]:inject({bag_index=index, slot_id=self.slot, bag_id=bag})
         end
     end,
@@ -28,12 +32,43 @@ ftype.base.fields.equip = {
 local equipment = {
     data = data,
     slot_names = {
-        main=0, sub=1, range=2, ammo=3,
-        head=4, neck=9, ear1=11, ear2=12,
-        body=5, hands=6, ring1=13, ring2=14,
-        back=15, waist=10, legs=7, feet=8,
+        main = 0, sub = 1, range = 2, ammo = 3,
+        head = 4, neck = 9, ear1 = 11, ear2 = 12,
+        body = 5, hands = 6, ring1 = 13, ring2 = 14,
+        back = 15, waist = 10, legs = 7, feet = 8,
     },
 }
+
+equipment.equip = function(self, slot_items)
+    local ear1, ear2 = slot_items[11], slot_items[12]
+    if ear1 and ear2 and ear1.index == ear2.index and ear1.id == ear2.id then
+        ear1 = nil
+    end
+
+    local ring1, ring2 = slot_items[13], slot_items[14]
+    if ring1 and ring2 and ring1.index == ring2.index and ring1.id == ring2.id then
+        ring1 = nil
+    end
+
+    local items = {}
+    for slot, item in pairs(slot_items) do
+        local index = item and item.index or 0
+        local bag = item and item.bag or 0
+        if self[slot].item.bag ~= bag or self[slot].item.index ~= index then
+            check_equippable(slot, item)
+            table.insert(items, {bag_index=index, slot_id=slot, bag_id=bag})
+        end
+    end
+
+    if #items > 1 then
+        table.sort(items, function (a, b)
+            return a.slot_id < b.slot_id
+        end)
+        packets.outgoing[0x051]:inject({count=#items, equipment=items})
+    elseif #items == 1 then
+        packets.outgoing[0x050]:inject(items[1])
+    end
+end
 
 local equipment_mt = {
     __index = function(table, key)
@@ -41,7 +76,8 @@ local equipment_mt = {
         return table.data[index]
     end,
     __newindex = function(table, key, value)
-        data[key] = value
+        local index = table.slot_names[key] or key
+        data[index] = value
     end,
     __pairs = function(table)
         return pairs(table.data)
@@ -53,37 +89,6 @@ local equipment_mt = {
         return #table.data
     end
 }
-
-function equipment:equip(slot_items)
-    if slot_items[11] and slot_items[12] and slot_items[11].index == slot_items[12].index and slot_items[11].id == slot_items[12].id then
-        slot_items[11] = nil
-    end
-    if slot_items[13] and slot_items[14] and slot_items[13].index == slot_items[14].index and slot_items[13].id == slot_items[14].id then
-        slot_items[13] = nil
-    end
-    local items = {}
-    for slot, item in pairs(slot_items) do
-        local index = item and item.index or 0
-        local bag = item and item.bag or 0
-        if self[slot].item.bag ~= bag or self[slot].item.index ~= index then
-            if item then
-                assert(item.id ~= 0, "invalid item")
-                assert(resources.bags[bag].equippable, "invalid item bag")
-                assert(item.status == 0, "invalid item status")
-                assert(bit.band(bit.left_shift(1, self.slot), item.item.slots) ~= 0, "invalid item equipment slot")
-            end
-            table.insert(items, {bag_index=index, slot_id=slot, bag_id=bag})
-        end
-    end
-    if #items > 1 then
-        table.sort(items, function (a, b)
-            return a.slot_id < b.slot_id
-        end)
-        packets.outgoing[0x051]:inject({count=#items, equipment=items})
-    elseif #items == 1 then
-        packets.outgoing[0x050]:inject(items[1])
-    end
-end
 
 return setmetatable(equipment, equipment_mt)
 
