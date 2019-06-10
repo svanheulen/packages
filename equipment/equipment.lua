@@ -23,11 +23,17 @@ end
 
 ftype.base.fields.equip = {
     data = function(self, item)
-        local bag = item and item.bag or 0
-        local index = item and item.index or 0
-        if self.item.bag ~= bag or self.item.index ~= index then
+        if self.item.bag ~= item.bag or self.item.index ~= item.index then
             check_equippable(self.slot, item)
-            packets.outgoing[0x050]:inject({bag_index = index, slot_id = self.slot, bag_id = bag})
+            packets.outgoing[0x050]:inject({bag_index = item.index, slot_id = self.slot, bag_id = item.bag})
+        end
+    end,
+}
+
+ftype.base.fields.unequip = {
+    data = function(self)
+        if self.item.bag ~= 0 or self.item.index ~= 0 then
+            packets.outgoing[0x050]:inject({bag_index = 0, slot_id = self.slot, bag_id = 0})
         end
     end,
 }
