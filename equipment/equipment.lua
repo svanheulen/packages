@@ -32,15 +32,7 @@ ftype.base.fields.equip = {
     end,
 }
 
-local equipment = {
-    data = data,
-    slot_names = {
-        main = 0, sub = 1, range = 2, ammo = 3,
-        head = 4, neck = 9, ear1 = 11, ear2 = 12,
-        body = 5, hands = 6, ring1 = 13, ring2 = 14,
-        back = 15, waist = 10, legs = 7, feet = 8,
-    },
-}
+local equipment = {}
 
 equipment.equip = function(self, slot_items)
     local ear1 = slot_items[11]
@@ -75,23 +67,30 @@ equipment.equip = function(self, slot_items)
     end
 end
 
+local slot_names = {
+    main = 0, sub = 1, range = 2, ammo = 3,
+    head = 4, neck = 9, ear1 = 11, ear2 = 12,
+    body = 5, hands = 6, ring1 = 13, ring2 = 14,
+    back = 15, waist = 10, legs = 7, feet = 8,
+}
+
 local equipment_mt = {
-    __index = function(table, key)
-        local index = table.slot_names[key] or key
-        return table.data[index]
+    __index = function(t, k)
+        local index = slot_names[k] or k
+        return data[index]
     end,
-    __newindex = function(table, key, value)
-        local index = table.slot_names[key] or key
-        data[index] = value
+    __newindex = function(t, k, v)
+        local index = slot_names[k] or k
+        data[index] = v
     end,
-    __pairs = function(table)
-        return pairs(table.data)
+    __pairs = function(t)
+        return pairs(data)
     end,
-    __ipairs = function(table)
-        return ipairs(table.data)
+    __ipairs = function(t)
+        return ipairs(data)
     end,
-    __len = function(table)
-        return #table.data
+    __len = function(t)
+        return #data
     end
 }
 
