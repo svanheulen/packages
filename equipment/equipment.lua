@@ -12,7 +12,7 @@ ftype.base.fields.item.type.fields.item = {
 local check_equippable = function(slot, item)
     if item then
         assert(item.id ~= 0, "invalid item")
-        assert(resources.bags[item.bag].equippable, "invalid item bad")
+        assert(resources.bags[item.bag].equippable, "invalid item bag")
         assert(item.status == 0, "invalid item status")
         assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
     end
@@ -24,7 +24,7 @@ ftype.base.fields.equip = {
         local index = item and item.index or 0
         if self.item.bag ~= bag or self.item.index ~= index then
             check_equippable(self.slot, item)
-            packets.outgoing[0x050]:inject({bag_index=index, slot_id=self.slot, bag_id=bag})
+            packets.outgoing[0x050]:inject({bag_index = index, slot_id = self.slot, bag_id = bag})
         end
     end,
 }
@@ -40,14 +40,16 @@ local equipment = {
 }
 
 equipment.equip = function(self, slot_items)
-    local ear1, ear2 = slot_items[11], slot_items[12]
+    local ear1 = slot_items[11]
+    local ear2 = slot_items[12]
     if ear1 and ear2 and ear1.index == ear2.index and ear1.id == ear2.id then
-        ear1 = nil
+        slot_items[11] = nil
     end
 
-    local ring1, ring2 = slot_items[13], slot_items[14]
+    local ring1 = slot_items[13]
+    local ring2 = slot_items[14]
     if ring1 and ring2 and ring1.index == ring2.index and ring1.id == ring2.id then
-        ring1 = nil
+        slot_items[13] = nil
     end
 
     local items = {}
@@ -56,7 +58,7 @@ equipment.equip = function(self, slot_items)
         local bag = item and item.bag or 0
         if self[slot].item.bag ~= bag or self[slot].item.index ~= index then
             check_equippable(slot, item)
-            table.insert(items, {bag_index=index, slot_id=slot, bag_id=bag})
+            table.insert(items, {bag_index = index, slot_id = slot, bag_id = bag})
         end
     end
 
@@ -64,7 +66,7 @@ equipment.equip = function(self, slot_items)
         table.sort(items, function (a, b)
             return a.slot_id < b.slot_id
         end)
-        packets.outgoing[0x051]:inject({count=#items, equipment=items})
+        packets.outgoing[0x051]:inject({count = #items, equipment = items})
     elseif #items == 1 then
         packets.outgoing[0x050]:inject(items[1])
     end
