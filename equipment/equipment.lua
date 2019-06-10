@@ -13,16 +13,19 @@ ftype.base.fields.item.type.fields.item = {
 }
 
 local check_equippable = function(slot, item)
-    if item then
-        assert(item.id ~= 0, "invalid item")
-        assert(resources.bags[item.bag].equippable, "invalid item bag")
-        assert(item.status == 0, "invalid item status")
-        assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
-    end
+    -- required: check that the item is not an empty bag slot
+    assert(item.id ~= 0, "invalid item")
+    -- required: check that the item is in a bag you're allowed to equip from
+    assert(resources.bags[item.bag].equippable, "invalid item bag")
+    -- optional: check that the item has the proper status
+    assert(item.status == 0, "invalid item status")
+    -- optional: check that the item is allowed to be equipped in this slot
+    assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
 end
 
 ftype.base.fields.equip = {
     data = function(self, item)
+        -- optional: not sending the packet if the item is already equipped
         if self.item.bag ~= item.bag or self.item.index ~= item.index then
             check_equippable(self.slot, item)
             packets.outgoing[0x050]:inject({bag_index = item.index, slot_id = self.slot, bag_id = item.bag})
@@ -32,6 +35,7 @@ ftype.base.fields.equip = {
 
 ftype.base.fields.unequip = {
     data = function(self)
+        -- optional: not sending the packet if there is no item equiiped
         if self.item.bag ~= 0 or self.item.index ~= 0 then
             packets.outgoing[0x050]:inject({bag_index = 0, slot_id = self.slot, bag_id = 0})
         end
@@ -41,35 +45,39 @@ ftype.base.fields.unequip = {
 local equipment = {}
 
 equipment.equip = function(self, slot_items)
+    -- optional: not equipping the same earring to both slots
     local ear1 = slot_items[11]
     local ear2 = slot_items[12]
     if ear1 and ear2 and ear1.index == ear2.index and ear1.id == ear2.id then
         slot_items[11] = nil
     end
 
+    -- optional: not equipping the same ring to both slots
     local ring1 = slot_items[13]
     local ring2 = slot_items[14]
     if ring1 and ring2 and ring1.index == ring2.index and ring1.id == ring2.id then
         slot_items[13] = nil
     end
 
+    local count = 0
     local items = {}
-    for slot, item in pairs(slot_items) do
-        local index = item and item.index or 0
-        local bag = item and item.bag or 0
-        if self[slot].item.bag ~= bag or self[slot].item.index ~= index then
-            check_equippable(slot, item)
-            table.insert(items, {bag_index = index, slot_id = slot, bag_id = bag})
+    -- optional: ordering the equipment by slot id
+    for slot = 0, 15 do
+        local item = slot_items[slot]
+        if item ~= nil then
+            local bag = item and item.bag or 0
+            local index = item and item.index or 0
+            if item then
+                check_equippable(slot, item)
+            end
+            items[count] = {bag_index = index, slot_id = slot, bag_id = bag}
+            count = count + 1
         end
     end
 
-    if #items > 1 then
-        table.sort(items, function (a, b)
-            return a.slot_id < b.slot_id
-        end)
-        packets.outgoing[0x051]:inject({count = #items, equipment = items})
-    elseif #items == 1 then
-        packets.outgoing[0x050]:inject(items[1])
+    -- optional: not sending an empty packet
+    if count > 0 then
+        packets.outgoing[0x051]:inject({count = count, equipment = items})
     end
 end
 
