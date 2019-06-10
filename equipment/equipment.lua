@@ -12,47 +12,47 @@ ftype.base.fields.item.type.fields.item = {
     end,
 }
 
-local check_equippable = function(slot, item)
-    -- required: check that the item is not an empty bag slot
-    assert(item.id ~= 0, "invalid item")
-    -- required: check that the item is in a bag you're allowed to equip from
-    assert(resources.bags[item.bag].equippable, "invalid item bag")
-    -- optional: check that the item has the proper status
-    assert(item.status == 0, "invalid item status")
-    -- optional: check that the item is allowed to be equipped in this slot
-    assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
-end
-
 ftype.base.fields.equip = {
-    data = function(self, item)
-        -- optional: not sending the packet if the item is already equipped
-        if self.item.bag ~= item.bag or self.item.index ~= item.index then
-            check_equippable(self.slot, item)
-            packets.outgoing[0x050]:inject({bag_index = item.index, slot_id = self.slot, bag_id = item.bag})
+    data = function(equipment_slot, item)
+        local equipped_item = equipment_slot.item
+        local bag = item.bag
+        local index = item.index
+        -- optional: do not send the packet if the item is already equipped
+        if equipped_item.bag ~= bag or equipped_item.index ~= index then
+            -- required: check that the item is not an empty bag slot
+            assert(item.id ~= 0, "invalid item")
+            -- required: check that the item is in a bag you're allowed to equip from
+            assert(resources.bags[bag].equippable, "invalid item bag")
+            -- optional: check that the item has the proper status
+            assert(item.status == 0, "invalid item status")
+            -- optional: check that the item is allowed to be equipped in this slot
+            assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
+            packets.outgoing[0x050]:inject({bag_index = index, slot_id = equipment_slot.slot, bag_id = bag})
         end
     end,
 }
 
 ftype.base.fields.unequip = {
-    data = function(self)
-        -- optional: not sending the packet if there is no item equiiped
-        if self.item.bag ~= 0 or self.item.index ~= 0 then
-            packets.outgoing[0x050]:inject({bag_index = 0, slot_id = self.slot, bag_id = 0})
+    data = function(equipment_slot)
+        local equipped_item = equipment_slot.item
+        -- optional: do not send a packet if no item is equipped already
+        if equipped_item.bag ~= 0 or equipped_item.index ~= 0 then
+            packets.outgoing[0x050]:inject({bag_index = 0, slot_id = equipment_slot.slot, bag_id = 0})
         end
     end,
 }
 
 local equipment = {}
 
-equipment.equip = function(self, slot_items)
-    -- optional: not equipping the same earring to both slots
+equipment.equip = function(slot_items)
+    -- optional: do not equip the exact same item in both earring slots
     local ear1 = slot_items[11]
     local ear2 = slot_items[12]
     if ear1 and ear2 and ear1.index == ear2.index and ear1.id == ear2.id then
         slot_items[11] = nil
     end
 
-    -- optional: not equipping the same ring to both slots
+    -- optional: do not equip the exact same item in both ring slots
     local ring1 = slot_items[13]
     local ring2 = slot_items[14]
     if ring1 and ring2 and ring1.index == ring2.index and ring1.id == ring2.id then
@@ -61,21 +61,26 @@ equipment.equip = function(self, slot_items)
 
     local count = 0
     local items = {}
-    -- optional: ordering the equipment by slot id
+    -- optional: sort the equipment by slot id
     for slot = 0, 15 do
         local item = slot_items[slot]
         if item ~= nil then
             local bag = item and item.bag or 0
             local index = item and item.index or 0
             if item then
-                check_equippable(slot, item)
+                -- required: check that the item is not an empty bag slot
+                assert(item.id ~= 0, "invalid item")
+                -- required: check that the item is in a bag you're allowed to equip from
+                assert(resources.bags[bag].equippable, "invalid item bag")
+                -- optional: check that the item is allowed to be equipped in this slot
+                assert(bit.band(bit.lshift(1, slot), item.item.slots) ~= 0, "invalid item equipment slot")
             end
             items[count] = {bag_index = index, slot_id = slot, bag_id = bag}
             count = count + 1
         end
     end
 
-    -- optional: not sending an empty packet
+    -- optional: do not send a packet with no equipment
     if count > 0 then
         packets.outgoing[0x051]:inject({count = count, equipment = items})
     end
