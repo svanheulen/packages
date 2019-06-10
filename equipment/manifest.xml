@@ -6,5 +6,6 @@
     <dependency>items_service</dependency>
     <dependency>resources</dependency>
     <dependency>shared</dependency> 
+    <dependency>packets</dependency> 
   </dependencies>
 </package>

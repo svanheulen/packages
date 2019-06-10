@@ -1,5 +1,6 @@
 local client = require('shared.client')
 local resources = require('resources')
+local packets = require('packets')
 
 local data, ftype = client.new('items_service', 'equipment')
 
